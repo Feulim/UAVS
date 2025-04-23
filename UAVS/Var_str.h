@@ -5,9 +5,14 @@
 
 
 typedef struct node {
-    int data;
+    Point data;
     struct node* next;
 } node_t;
+
+typedef struct queue {
+    node_t* front;
+    node_t* rear;
+} Queue;
 
 
 void push(node_t** queue, int data);

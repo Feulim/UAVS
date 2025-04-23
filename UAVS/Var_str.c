@@ -1,7 +1,7 @@
 #include "Var_str.h"
 
 
-void push(node_t** queue, int data) {
+void push(node_t** queue, Point data) {
     node_t* new_node = (node_t*)malloc(sizeof(node_t));
     new_node->data = data;
     new_node->next = NULL;

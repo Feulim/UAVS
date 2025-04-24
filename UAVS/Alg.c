@@ -1,5 +1,6 @@
 ﻿#include "typinclude.h"
 #include "MapGeneration.h"
+#include "map_way_symbols.h"
 #include "Var_str.c"
 #include <stdlib.h>
 #include <stdio.h>
@@ -213,9 +214,13 @@ int is_passable(char** map_data, int x, int y, int rows, int cols, Point** direc
     return 1;
 }
 
+
+/*
+star pattern section search (up, right, down, left, up-left, up-right, down-right, down-left)
+*/
 void get_neighbors(Point current, Point* neighbors, int* count, int allow_diagonal) {
-    int base[4][2] = { {1,0}, {0,1}, {-1,0}, {0,-1} };
-    int diag[4][2] = { {1,1}, {1,-1}, {-1,1}, {-1,-1} };
+    int base[4][2] = { {0,-1}, {1,0}, {0,1}, {-1,0} };
+    int diag[4][2] = { {-1,-1}, {1,-1}, {1,1}, {-1,1} };
     *count = 0;
     for (int i = 0; i < 4; i++) {
         neighbors[*count].x = current.x + base[i][0];
@@ -231,6 +236,16 @@ void get_neighbors(Point current, Point* neighbors, int* count, int allow_diagon
     }
 }
 
+/*
+Minkowski distance
+*/
+double calculate_distance(Point a, Point b, double p) {
+    double dx = fabs(a.x - b.x);
+    double dy = fabs(a.y - b.y);
+
+    return pow(pow(dx, p) + pow(dy, p), 1.0 / p);
+}
+
 Point* reconstruct_path(Point start, Point end, Point** directions, int* path_length) {
     int length = 0;
     Point current = end;
@@ -239,15 +254,17 @@ Point* reconstruct_path(Point start, Point end, Point** directions, int* path_le
             *path_length = 0;
             return NULL;
         }
+        Point next = current;
         Point delta = directions[current.y][current.x];
-        current.x -= delta.x;
-        current.y -= delta.y;
-        length++;
+        next.x -= delta.x;
+        next.y -= delta.y;
+        length += calculate_distance(current, next, 3);
+        current = next;
     }
-    length++;
+    length += calculate_distance(current, start, 3);
     Point* path = (Point*)malloc(length * sizeof(Point));
     if (!path) {
-        perror("Failed to allocate path");
+        perror("Failed to allocate");
         exit(EXIT_FAILURE);
     }
     current = end;
@@ -267,13 +284,13 @@ Point* reconstruct_path(Point start, Point end, Point** directions, int* path_le
 Point* find_path(char** map_data, Point start, Point end, int rows, int cols, int allow_diagonal, int* path_length, int size) {
     Point** directions = (Point**)malloc(rows * sizeof(Point*));
     if (!directions) {
-        perror("Failed to allocate directions");
+        perror("Failed to allocate");
         exit(EXIT_FAILURE);
     }
     for (int i = 0; i < rows; i++) {
         directions[i] = (Point*)malloc(cols * sizeof(Point));
         if (!directions[i]) {
-            perror("Failed to allocate directions row");
+            perror("Failed to allocate");
             for (int j = 0; j < i; j++) free(directions[j]);
             free(directions);
             exit(EXIT_FAILURE);
@@ -322,20 +339,17 @@ Point* find_path(char** map_data, Point start, Point end, int rows, int cols, in
 }
 
 
-/*
-kill yourself now!
-*/
 char** visualize_path(char** map_data, Point* path, int path_length, Point start, Point end, int rows, int cols) {
     char** visual = (char**)malloc(rows * sizeof(char*));
     if (!visual) {
-        perror("Failed to allocate visual");
+        perror("Failed to allocate");
         exit(EXIT_FAILURE);
     }
 
     for (int i = 0; i < rows; i++) {
         visual[i] = (char*)malloc((cols + 1) * sizeof(char));
         if (!visual[i]) {
-            perror("Failed to allocate visual row");
+            perror("Failed to allocate");
             for (int j = 0; j < i; j++) free(visual[j]);
             free(visual);
             exit(EXIT_FAILURE);
@@ -347,13 +361,16 @@ char** visualize_path(char** map_data, Point* path, int path_length, Point start
         visual[i][cols] = '\0';
     }
 
-    //visual[start.y][start.x] = 'A'; maybe need \ o_O /
-    //visual[end.y][end.x] = 'B';
-
     typedef struct { int dx, dy; char arrow; } ArrowMap;
     ArrowMap arrows[] = {
-        {1,0,'>'}, {-1,0,'<'}, {0,1,'v'}, {0,-1,'^'},
-        {1,1,'D'}, {1,-1,'U'}, {-1,1,'L'}, {-1,-1,'R'}
+    { 1,  0, RIGHT},
+    {-1,  0, LEFT},
+    { 0,  1, DOWN},
+    { 0, -1, UP},
+    { 1,  1, DOWN_RIGHT},
+    { 1, -1, UP_RIGHT},
+    {-1,  1, DOWN_LEFT},
+    {-1, -1, UP_LEFT}
     };
     const int arrowCount = sizeof(arrows) / sizeof(arrows[0]);
 
@@ -365,7 +382,7 @@ char** visualize_path(char** map_data, Point* path, int path_length, Point start
         int dx = next.x - current.x;
         int dy = next.y - current.y;
 
-        char arrow = '?';
+        char arrow = UNKNOWN;
         for (int j = 0; j < arrowCount; j++) {
             if (arrows[j].dx == dx && arrows[j].dy == dy) {
                 arrow = arrows[j].arrow;

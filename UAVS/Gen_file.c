@@ -1,6 +1,6 @@
 #include "MapGeneration.h"
 
-#define RUNTIME_ERROR_MAX 1000
+#define RUNTIME_ERROR_MAX 10000
 
 
 int do_intersect(Obstacle line1, Obstacle line2) {
@@ -81,14 +81,25 @@ int minimum(int a, int b) {
 }
 
 void generate_obstacles(Obstacle* obstacles, int* count, int map_width, int map_height, int num_obstacles, int aircraft_size) {
+    time_t now;
+    char time_buf[26];
+    time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+    printf("[%s] Starting obstacle generation\n", time_buf);
     int max_area = calculateSixtyPercentArea(map_width, map_height);
     if (max_area < num_obstacles) { 
-        printf("\nCRITICAL ERROR: The size of the map does not allow for %d obstacles. \n", num_obstacles);
+        time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+        printf("[%s] CRITICAL ERROR: The size of the map does not allow for %d obstacles\n", time_buf, num_obstacles);
+        free(obstacles);
         exit(-3); }
     int runtime_indicator = 0;
     while (*count < num_obstacles) {
+        time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+        printf("[%s] Generating obstacle %d of %d\n", time_buf, *count + 1, num_obstacles);
         Obstacle new_obstacle;
         int type = rand() % 3;
+        time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+        printf("[%s] Selected obstacle type: %d\n", time_buf, type);
+
 
         if (type == 0) {
             new_obstacle.x1 = rand() % (map_width - 1);
@@ -96,6 +107,8 @@ void generate_obstacles(Obstacle* obstacles, int* count, int map_width, int map_
             new_obstacle.x2 = new_obstacle.x1 + rand() % minimum((map_width - new_obstacle.x1), (new_obstacle.x1 + max_area - (num_obstacles - *count)));
             new_obstacle.y2 = new_obstacle.y1;
             max_area -= (new_obstacle.x2 - new_obstacle.x1);
+            time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+            printf("[%s] Generated horizontal obstacle from (%d,%d) to (%d,%d)\n", time_buf, new_obstacle.x1, new_obstacle.y1, new_obstacle.x2, new_obstacle.y2);
         }
         else if (type == 1) {
             new_obstacle.x1 = rand() % map_width;
@@ -103,6 +116,8 @@ void generate_obstacles(Obstacle* obstacles, int* count, int map_width, int map_
             new_obstacle.x2 = new_obstacle.x1;
             new_obstacle.y2 = new_obstacle.y1 + rand() % minimum((map_height - new_obstacle.y1), (new_obstacle.y1 + max_area - (num_obstacles - *count)));
             max_area -= (new_obstacle.y2 - new_obstacle.y1);
+            time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+            printf("[%s] Generated vertical obstacle from (%d,%d) to (%d,%d)\n", time_buf, new_obstacle.x1, new_obstacle.y1, new_obstacle.x2, new_obstacle.y2);
         }
         else {
             new_obstacle.x1 = rand() % (map_width - 1);
@@ -110,21 +125,31 @@ void generate_obstacles(Obstacle* obstacles, int* count, int map_width, int map_
             new_obstacle.x2 = new_obstacle.x1 + rand() % minimum((map_width - new_obstacle.x1), (new_obstacle.x1 + max_area - (num_obstacles - *count)));
             new_obstacle.y2 = new_obstacle.y1 + (new_obstacle.x2 - new_obstacle.x1);
             max_area -= (new_obstacle.x2 - new_obstacle.x1);
+            time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+            printf("[%s] Generated diagonal obstacle from (%d,%d) to (%d,%d)\n", time_buf, new_obstacle.x1, new_obstacle.y1, new_obstacle.x2, new_obstacle.y2);
         }
 
         if (is_valid_obstacle(obstacles, *count, new_obstacle, map_width, map_height, aircraft_size)) {
             obstacles[*count] = new_obstacle;
             (*count)++;
             runtime_indicator = 0;
+            time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+            printf("[%s] Obstacle added. SUCCESS (total: %d)\n", time_buf, *count);
         }
         else {
+            time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+            printf("[%s] FAILED. Invalid obstacle detected, retrying...\n", time_buf);
             if (runtime_indicator > RUNTIME_ERROR_MAX) {
-                printf("RUNTIME ERROR: waiting too long for a program response");
+                time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+                printf("[%s] RUNTIME ERROR: waiting too long for a program response\n", time_buf);
+                free(obstacles);
                 exit(-4);
             }
             runtime_indicator++;
         }
     }
+    time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+    printf("[%s] Obstacle generation completed. SUCCESS\n", time_buf);
 }
 
 Point set_point(Obstacle* obstacles, int* count, int map_width, int map_height, int aircraft_size) {
@@ -153,22 +178,39 @@ void generate_start_and_finish_points(Point* Points, Obstacle* obstacles, int* c
 }
 
 void save_map_to_file(const char* filename, int map_width, int map_height, Obstacle* obstacles, Point* points, int count) {
+    time_t now;
+    char time_buf[26];
+    time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+    printf("[%s] Starting map saving to file: %s\n", time_buf, filename);
+
     FILE* file;
     errno_t error = fopen_s(&file, filename, "w");
     if (error != 0) {
+        time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+        printf("[%s] FILE OPEN ERROR: Failed to open file %s\n", time_buf, filename);
         perror("FILE OPEN ERROR");
         return;
     }
+    time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+    printf("[%s] File opened. SUCCESS\n", time_buf);
 
     int full_map_height = map_height + 2;
     int full_map_width = map_width + 2;
+    time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+    printf("[%s] Allocating memory for buffer map (%dx%d)\n", time_buf, full_map_width, full_map_height);
     char* map = (char*)malloc(full_map_height * full_map_width * sizeof(char));
     if (map == NULL) {
-        printf("MALLOC ERROR.\n");
+        time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+        printf("[%s] MALLOC ERROR: Failed to allocate memory for map\n", time_buf);
+        perror("MALLOC ERROR.\n");
         fclose(file);
         return;
     }
+    time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+    printf("[%s] Memory allocated. SUCCESS\n", time_buf);
 
+    time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+    printf("[%s] Initializing map with empty characters\n", time_buf);
     for (int y = 0; y < full_map_height; y++) {
         for (int x = 0; x < full_map_width; x++) {
             map[y * full_map_width + x] = NULL_CHAR;
@@ -182,6 +224,8 @@ void save_map_to_file(const char* filename, int map_width, int map_height, Obsta
         map[(points[1].y + 1) * full_map_width + (points[1].x + 1)] = FINISH_POINT_CHAR;
     }
 
+    time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+    printf("[%s] Drawing map borders\n", time_buf);
     for (int x = 0; x < full_map_width; x++) {
         map[x] = '-';
         map[(full_map_height - 1) * full_map_width + x] = '-';
@@ -196,8 +240,14 @@ void save_map_to_file(const char* filename, int map_width, int map_height, Obsta
     map[(full_map_height) * full_map_width - 1] = '+';
     map[(full_map_height - 1) * full_map_width] = '+';
 
+    time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+    printf("[%s] Drawing %d obstacles\n", time_buf, count);
     for (int i = 0; i < count; i++) {
         Obstacle obs = obstacles[i];
+
+        time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+        printf("[%s] Processing obstacle %d: from (%d,%d) to (%d,%d)\n",
+            time_buf, i + 1, obs.x1, obs.y1, obs.x2, obs.y2);
 
         if (obs.y1 == obs.y2) {
             for (int x = obs.x1; x <= obs.x2; x++) {
@@ -232,6 +282,8 @@ void save_map_to_file(const char* filename, int map_width, int map_height, Obsta
         }
     }
 
+    time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+    printf("[%s] Writing map to file\n", time_buf);
     for (int y = 0; y < full_map_height; y++) {
         for (int x = 0; x < full_map_width; x++) {
             fprintf(file, "%c", map[y * full_map_width + x]);
@@ -241,4 +293,7 @@ void save_map_to_file(const char* filename, int map_width, int map_height, Obsta
 
     fclose(file);
     free(map);
+
+    time(&now); ctime_s(time_buf, sizeof(time_buf), &now); time_buf[24] = '\0';
+    printf("[%s] Map saved to %s. SUCCESS\n", time_buf, filename);
 }

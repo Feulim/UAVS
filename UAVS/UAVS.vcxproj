@@ -142,9 +142,11 @@
     <ClCompile Include="Gen_file.c" />
     <ClCompile Include="UAVS.cpp" />
     <ClCompile Include="Var_str.c" />
+    <ClCompile Include="Visual.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MapGeneration.h" />
+    <ClInclude Include="map_way_symbols.h" />
     <ClInclude Include="typinclude.h" />
     <ClInclude Include="Var_str.h" />
   </ItemGroup>

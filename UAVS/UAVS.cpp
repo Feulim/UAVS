@@ -1,72 +1,75 @@
-﻿#include "Gen_file.c"
+#include "Gen_file.c"
 #include "Alg.c"
+#include "Visual.c"
 
 
-int testing_map_generation() {
+int map_generation() {
     setlocale(LC_ALL, "");
     srand(time(NULL));
     int map_width, map_height, num_obstacles, aircraft_size;
 
-    printf("MAP WIDTH: ");
-    scanf_s("%d", &map_width);
-    printf("MAP HEIGHT: ");
-    scanf_s("%d", &map_height);
-    printf("OBSTACLES COUNT: ");
-    scanf_s("%d", &num_obstacles);
-    printf("UAVS SIZE: ");
-    scanf_s("%d", &aircraft_size);
+    print_with_delay("Enter the size parameters of the map\n\n", 10, 15);
+    input_entry("MAP WIDTH", 14, &map_width, "int");
+    input_entry("MAP HEIGHT", 14, &map_height, "int");
 
-    if (num_obstacles > MAX_OBSTACLES) {
-        printf("MAX COUNT OF OBSTACLES = %d.\n", MAX_OBSTACLES);
+    clear_scr();
+    print_with_delay("Enter the number of obstacles on the map\n\n", 10, 15);
+    input_entry("OBSTACLES COUNT", 16, &num_obstacles, "int");
+
+    clear_scr();
+    print_with_delay("Enter the size of the drone(it has a square shape)\n\n", 10, 15);
+    input_entry("DRONE SIZE", 14, &aircraft_size, "int");
+
+    clear_scr();
+
+
+    Obstacle* obstacles = (Obstacle*)malloc(num_obstacles * sizeof(Obstacle));
+    if (obstacles == NULL) {
+        perror("Failed to allocate");
         return 1;
     }
-
-    Obstacle obstacles[MAX_OBSTACLES];
     Point PointOFInterest[2];
     int count = 0;
 
+    printf("LOGS OF MAP GENERATION");
     generate_obstacles(obstacles, &count, map_width, map_height, num_obstacles, aircraft_size);
     //generate_start_and_finish_points(PointOFInterest, obstacles, &count, map_width, map_height, aircraft_size);
     save_map_to_file("map.txt", map_width, map_height, obstacles, PointOFInterest, count);
 
-    printf("Map was saved as map.txt with %d obstacles.\n", count);
+    free(obstacles);
+    printf("\nMap was saved as map.txt with %d obstacles.\n\n", count);
     return aircraft_size;
 }
 
 int main() {
-    int size = testing_map_generation();
+    int size = map_generation();
 
-    printf("Open the file 'map.txt' and enter points A and B in place of the empty cells. Close the text editor for the program to function correctly. After completing these steps, press any key in the console.");
+    print_with_delay("Open the file 'map.txt' and enter points A and B in place of the empty cells.\nClose the text editor for the program to function correctly.\nAfter completing these steps, press Enter in the console.", 10, 20);
+    open_file("map.txt");
     char waiting = getchar();
     waiting = getchar();
     printf("%c", waiting);
 
+    clear_scr();
     int rows, cols;
     char** map = read_map_file("map.txt", &rows, &cols);
     if (map == NULL) {
-        printf("Failed to read map file\n");
+        perror("Failed to read map file\n");
         return -1;
-    }
-
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            printf("%c", map[i][j]);
-        }
-        printf("\n");
     }
 
     Point a, b;
     find_points(map, rows, cols, &a, &b);
 
     if (a.x != -1 && a.y != -1) {
-        printf("Point A found at: (%d, %d)\n", a.x, a.y);
+        printf("Point A found at: [%d, %d]\n", a.x, a.y);
     }
     else {
         printf("Point A not found\n");
     }
 
     if (b.x != -1 && b.y != -1) {
-        printf("Point B found at: (%d, %d)\n", b.x, b.y);
+        printf("Point B found at: [%d, %d]\n", b.x, b.y);
     }
     else {
         printf("Point B not found\n");
@@ -79,13 +82,13 @@ int main() {
         printf("Path found (length %d):\n", path_length);
         char** visual = visualize_path(map, path, path_length, a, b, rows, cols);
         for (int i = 0; i < rows; i++) {
-            //printf("%s\n", visual[i]);
+            printf("%s\n", visual[i]);
             free(visual[i]);
         }
         free(visual);
         free(path);
+        open_file("map_path.txt");
 
-        printf("I'm too tired to output the result to the console, and by the way, I still need to free up some memory. Please check the file map_path.txt.");
     }
     else {
         printf("No path found\n");

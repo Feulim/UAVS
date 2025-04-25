@@ -15,7 +15,7 @@ typedef struct queue {
 } Queue;
 
 
-void push(node_t** queue, int data);
+void push(node_t** queue, Point data);
 node_t* pop(node_t* queue);
 void queue_info(node_t* queue);
 void queue_clear(node_t* queue);

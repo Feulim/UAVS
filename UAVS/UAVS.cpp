@@ -76,17 +76,16 @@ int main() {
     }
 
     int path_length;
-    Point* path = find_path(map, a, b, rows, cols, 1, &path_length, size);
+    Queue path = find_path(map, a, b, rows, cols, 1, &path_length, size);
 
-    if (path) {
+    if (path.front !=  NULL) {
         printf("Path found (length %d):\n", path_length);
-        char** visual = visualize_path(map, path, path_length, a, b, rows, cols);
+        char** visual = visualize_path(map, &path, path_length, a, b, rows, cols);
         for (int i = 0; i < rows; i++) {
             printf("%s\n", visual[i]);
             free(visual[i]);
         }
         free(visual);
-        free(path);
         open_file("map_path.txt");
 
     }

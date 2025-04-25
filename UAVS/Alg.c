@@ -155,43 +155,7 @@ char** read_map_file(const char* filename, int* rows, int* cols) {
     return matrix;
 }
 
-void enqueue(Queue* q, Point p) {
-    node_t* newNode = (node_t*)malloc(sizeof(node_t));
-    if (!newNode) {
-        perror("Failed to allocate memory for queue node");
-        exit(EXIT_FAILURE);
-    }
-    newNode->data = p;
-    newNode->next = NULL;
-    if (q->rear == NULL) {
-        q->front = q->rear = newNode;
-    }
-    else {
-        q->rear->next = newNode;
-        q->rear = newNode;
-    }
-}
-
-Point dequeue(Queue* q) {
-    if (q->front == NULL) {
-        fprintf(stderr, "Dequeue from empty queue\n");
-        exit(EXIT_FAILURE);
-    }
-    node_t* temp = q->front;
-    Point p = temp->data;
-    q->front = q->front->next;
-    if (q->front == NULL) {
-        q->rear = NULL;
-    }
-    free(temp);
-    return p;
-}
-
-int is_queue_empty(Queue* q) {
-    return q->front == NULL;
-}
-
-int is_passable(char** map_data, int x, int y, int rows, int cols, Point** directions, int size) {
+int is_passable(char** map_data, int x, int y, int rows, int cols, Point** directions, int size, Point current) {
     if (x < 0 || y < 0 || x + size > cols || y + size > rows) {
         return 0;
     }
@@ -209,8 +173,52 @@ int is_passable(char** map_data, int x, int y, int rows, int cols, Point** direc
             }
         }
     }
-    if (directions[y][x].x != -1 || directions[y][x].y != -1)
+
+    if (directions[y][x].x != -1 || directions[y][x].y != -1) {
         return 0;
+    }
+
+    int dx = x - current.x;
+    int dy = y - current.y;
+
+    if (dx != 0 && dy != 0) {
+        int side_x = current.x + dx;
+        int side_y = current.y;
+        int top_x = current.x;
+        int top_y = current.y + dy;
+
+        int side_blocked = 0;
+        int top_blocked = 0;
+
+        if (side_x >= 0 && side_x < cols && side_y >= 0 && side_y < rows) {
+            for (int i = 0; i < size; i++) {
+                if (map_data[side_y + i][side_x] == OBSTACLE_CHAR ||
+                    map_data[side_y + i][side_x] == '+' ||
+                    map_data[side_y + i][side_x] == '-' ||
+                    map_data[side_y + i][side_x] == '|') {
+                    side_blocked = 1;
+                    break;
+                }
+            }
+        }
+
+        if (top_x >= 0 && top_x < cols && top_y >= 0 && top_y < rows) {
+            for (int i = 0; i < size; i++) {
+                if (map_data[top_y][top_x + i] == OBSTACLE_CHAR ||
+                    map_data[top_y][top_x + i] == '+' ||
+                    map_data[top_y][top_x + i] == '-' ||
+                    map_data[top_y][top_x + i] == '|') {
+                    top_blocked = 1;
+                    break;
+                }
+            }
+        }
+
+        if (side_blocked && top_blocked) {
+            return 0;
+        }
+    }
+
     return 1;
 }
 
@@ -246,13 +254,13 @@ double calculate_distance(Point a, Point b, double p) {
     return pow(pow(dx, p) + pow(dy, p), 1.0 / p);
 }
 
-Point* reconstruct_path(Point start, Point end, Point** directions, int* path_length) {
+Queue reconstruct_path(Point start, Point end, Point** directions, int* path_length) {
     int length = 0;
     Point current = end;
     while (current.x != start.x || current.y != start.y) {
         if (directions[current.y][current.x].x == -1 && directions[current.y][current.x].y == -1) {
             *path_length = 0;
-            return NULL;
+            return { NULL, NULL };
         }
         Point next = current;
         Point delta = directions[current.y][current.x];
@@ -262,15 +270,11 @@ Point* reconstruct_path(Point start, Point end, Point** directions, int* path_le
         current = next;
     }
     length += calculate_distance(current, start, 3);
-    Point* path = (Point*)malloc(length * sizeof(Point));
-    if (!path) {
-        perror("Failed to allocate");
-        exit(EXIT_FAILURE);
-    }
+    Queue path = { NULL, NULL };
     current = end;
     int index = length - 1;
     while (index >= 0) {
-        path[index] = current;
+        enqueue(&path, current);
         if (index == 0) break;
         Point delta = directions[current.y][current.x];
         current.x -= delta.x;
@@ -281,7 +285,7 @@ Point* reconstruct_path(Point start, Point end, Point** directions, int* path_le
     return path;
 }
 
-Point* find_path(char** map_data, Point start, Point end, int rows, int cols, int allow_diagonal, int* path_length, int size) {
+Queue find_path(char** map_data, Point start, Point end, int rows, int cols, int allow_diagonal, int* path_length, int size) {
     Point** directions = (Point**)malloc(rows * sizeof(Point*));
     if (!directions) {
         perror("Failed to allocate");
@@ -318,7 +322,7 @@ Point* find_path(char** map_data, Point start, Point end, int rows, int cols, in
         get_neighbors(current, neighbors, &count, allow_diagonal);
         for (int i = 0; i < count; i++) {
             Point neighbor = neighbors[i];
-            if (is_passable(map_data, neighbor.x, neighbor.y, rows, cols, directions, size)) {
+            if (is_passable(map_data, neighbor.x, neighbor.y, rows, cols, directions, size, current)) {
                 directions[neighbor.y][neighbor.x].x = neighbor.x - current.x;
                 directions[neighbor.y][neighbor.x].y = neighbor.y - current.y;
                 enqueue(&q, neighbor);
@@ -326,7 +330,7 @@ Point* find_path(char** map_data, Point start, Point end, int rows, int cols, in
         }
     }
 
-    Point* path = NULL;
+    Queue path;
     *path_length = 0;
     if (found)
         path = reconstruct_path(start, end, directions, path_length);
@@ -339,7 +343,7 @@ Point* find_path(char** map_data, Point start, Point end, int rows, int cols, in
 }
 
 
-char** visualize_path(char** map_data, Point* path, int path_length, Point start, Point end, int rows, int cols) {
+char** visualize_path(char** map_data, Queue* path, int path_length, Point start, Point end, int rows, int cols) {
     char** visual = (char**)malloc(rows * sizeof(char*));
     if (!visual) {
         perror("Failed to allocate");
@@ -374,22 +378,27 @@ char** visualize_path(char** map_data, Point* path, int path_length, Point start
     };
     const int arrowCount = sizeof(arrows) / sizeof(arrows[0]);
 
+    revers_queue(path);
     for (int i = 0; i < path_length - 1; i++) {
-        Point current = path[i];
+        Point current = dequeue(path);
         if (current.x == start.x && current.y == start.y) continue;
 
-        Point next = path[i + 1];
-        int dx = next.x - current.x;
-        int dy = next.y - current.y;
+        int dx = 0;
+        int dy = 0;
+        Point next = path->front->data;
+        dx = next.x - current.x;
+        dy = next.y - current.y;
 
-        char arrow = UNKNOWN;
-        for (int j = 0; j < arrowCount; j++) {
-            if (arrows[j].dx == dx && arrows[j].dy == dy) {
-                arrow = arrows[j].arrow;
-                break;
+        if (1) {
+            char arrow = UNKNOWN;
+            for (int j = 0; j < arrowCount; j++) {
+                if (arrows[j].dx == dx && arrows[j].dy == dy) {
+                    arrow = arrows[j].arrow;
+                    break;
+                }
             }
+            visual[current.y][current.x] = arrow;
         }
-        visual[current.y][current.x] = arrow;
     }
 
     FILE* file = NULL;
